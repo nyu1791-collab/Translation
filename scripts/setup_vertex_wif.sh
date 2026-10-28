@@ -7,7 +7,30 @@ translation_number=$(gcloud projects describe "$translation_project" --format='v
 translation_sa="translation-vertex@$translation_project.iam.gserviceaccount.com"
 translation_pool='translation-actions'
 translation_provider='github'
-gcloud services enable aiplatform.googleapis.com iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com --project="$translation_project" --quiet
+translation_enabled=$(gcloud services list --enabled --project="$translation_project" --format='value(config.name)')
+translation_missing=()
+for translation_service in aiplatform.googleapis.com iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com; do
+  if ! grep -Fxq "$translation_service" <<<"$translation_enabled"; then
+    translation_missing+=("$translation_service")
+  fi
+done
+if ((${#translation_missing[@]})); then
+  translation_error=$(mktemp)
+  if gcloud services enable "${translation_missing[@]}" --project="$translation_project" --quiet 2>"$translation_error"; then
+    rm -f "$translation_error"
+  elif grep -qi 'RATE_LIMIT_EXCEEDED' "$translation_error"; then
+    echo 'Google Cloud service activation is rate limited; waiting 60 seconds before one retry.' >&2
+    rm -f "$translation_error"
+    sleep 60
+    gcloud services enable "${translation_missing[@]}" --project="$translation_project" --quiet
+  else
+    cat "$translation_error" >&2
+    rm -f "$translation_error"
+    exit 1
+  fi
+else
+  echo 'Required Google Cloud services are already enabled.'
+fi
 if ! gcloud iam service-accounts describe "$translation_sa" --project="$translation_project" >/dev/null 2>&1; then
   gcloud iam service-accounts create translation-vertex --display-name='Translation Vertex caller' --project="$translation_project" --quiet
 fi
