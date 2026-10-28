@@ -96,3 +96,72 @@ def test_permission_denial_does_not_retry(tmp_path):
     assert result.returncode != 0
     assert "PERMISSION_DENIED" in result.stderr
     assert not (tmp_path / "sleep").exists()
+
+
+def test_new_project_registration_preserves_existing_project(tmp_path):
+    import json
+
+    env = {
+        **setup_stub(tmp_path),
+        "TEST_ENABLED": SERVICES,
+        "GOOGLE_CLOUD_PROJECT": "second-project",
+        "TEST_OLD_MAP": json.dumps(
+            {"first-project": {"provider": "old", "service_account": "old"}}
+        ),
+        "TEST_SET_FILE": str(tmp_path / "set"),
+    }
+    gh = tmp_path / "bin" / "gh"
+    gh.write_text("""#!/usr/bin/env python3
+import os, pathlib, sys
+args = sys.argv[1:]
+if args[:2] == ["auth", "status"]:
+    sys.exit(0)
+if args[:3] == ["variable", "get", "TRANSLATION_PROJECTS"]:
+    print(os.environ["TEST_OLD_MAP"])
+    sys.exit(0)
+if args[:3] == ["variable", "set", "TRANSLATION_PROJECTS"]:
+    pathlib.Path(os.environ["TEST_SET_FILE"]).write_text(args[args.index("--body") + 1])
+    sys.exit(0)
+sys.exit(1)
+""")
+    gh.chmod(0o755)
+    result = subprocess.run(
+        ["bash", str(SCRIPT)], env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    mapping = json.loads((tmp_path / "set").read_text())
+    assert mapping["first-project"] == {"provider": "old", "service_account": "old"}
+    assert (
+        mapping["second-project"]["service_account"]
+        == "translation-vertex@second-project.iam.gserviceaccount.com"
+    )
+    assert mapping["second-project"]["provider"].startswith("projects/123456789012/")
+
+
+def test_denied_mapping_read_does_not_overwrite_existing_settings(tmp_path):
+    env = {
+        **setup_stub(tmp_path),
+        "TEST_ENABLED": SERVICES,
+        "TRANSLATION_SET_DEFAULT": "1",
+        "TEST_SET_FILE": str(tmp_path / "set"),
+    }
+    gh = tmp_path / "bin" / "gh"
+    gh.write_text("""#!/usr/bin/env python3
+import os, pathlib, sys
+args = sys.argv[1:]
+if args[:2] == ["auth", "status"]:
+    sys.exit(0)
+if args[:2] == ["variable", "get"]:
+    print("HTTP 403: Resource not accessible", file=sys.stderr)
+    sys.exit(1)
+pathlib.Path(os.environ["TEST_SET_FILE"]).write_text("unexpected write")
+sys.exit(0)
+""")
+    gh.chmod(0o755)
+    result = subprocess.run(
+        ["bash", str(SCRIPT)], env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    assert not (tmp_path / "set").exists()
+    assert "leaving GitHub variables unchanged" in result.stderr
+    assert "Default project was not changed" in result.stderr

@@ -32,10 +32,10 @@ on:
         type: choice
         options: ['1', '2', '3', '4', '5', '6']
         default: '6'
-      gap_recovery:
-        description: Try to recover some transcription gaps
-        type: boolean
-        default: true
+      project_id:
+        description: Registered Google Cloud project ID; blank uses the default
+        type: string
+        default: ''
       bilingual:
         description: Show the source text beneath the translation
         type: boolean
@@ -59,10 +59,8 @@ jobs:
       END_SECONDS: ${{ inputs.end_seconds }}
       THINKING: ${{ inputs.thinking }}
       WORKERS: ${{ inputs.workers }}
-      GAP_RECOVERY: ${{ inputs.gap_recovery }}
       BILINGUAL: ${{ inputs.bilingual }}
       SUBTITLES_ONLY: ${{ inputs.subtitles_only }}
-      GOOGLE_CLOUD_PROJECT: ${{ vars.TRANSLATION_PROJECT_ID || 'project-fdadb4dd-cb77-4270-9cd' }}
       STORE_REPO: ${{ vars.TRANSLATION_STORAGE_REPO || 'nyu1791-collab/ai-model-workers' }}
     steps:
       - uses: actions/checkout@v4
@@ -77,15 +75,25 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg fonts-noto-cjk
           uv sync --locked --no-dev
+      - name: Select the project's Vertex identity
+        id: project
+        env:
+          TRANSLATION_REQUESTED_PROJECT: ${{ inputs.project_id }}
+          TRANSLATION_DEFAULT_PROJECT: ${{ vars.TRANSLATION_PROJECT_ID }}
+          TRANSLATION_PROJECTS_JSON: ${{ vars.TRANSLATION_PROJECTS }}
+          TRANSLATION_LEGACY_PROVIDER: ${{ vars.TRANSLATION_WIF_PROVIDER }}
+          TRANSLATION_LEGACY_ACCOUNT: ${{ vars.TRANSLATION_SERVICE_ACCOUNT }}
+        run: uv run --no-sync python -m translation.project_config
       - name: Connect Vertex with GitHub OIDC
         uses: google-github-actions/auth@v3
         with:
-          workload_identity_provider: ${{ vars.TRANSLATION_WIF_PROVIDER }}
-          service_account: ${{ vars.TRANSLATION_SERVICE_ACCOUNT || 'translation-vertex@project-fdadb4dd-cb77-4270-9cd.iam.gserviceaccount.com' }}
+          workload_identity_provider: ${{ steps.project.outputs.provider }}
+          service_account: ${{ steps.project.outputs.service_account }}
           create_credentials_file: true
       - name: Transcribe, translate and render
         env:
           YOUTUBE_COOKIES_B64: ${{ secrets.YOUTUBE_COOKIES_B64 }}
+          GOOGLE_CLOUD_PROJECT: ${{ steps.project.outputs.project_id }}
         run: |
           set -euo pipefail
           args=("$SOURCE_URL" --output "$RUNNER_TEMP/translation-output" --config config.example.json --project "$GOOGLE_CLOUD_PROJECT" --target-language "$TARGET_LANGUAGE" --start "$START_SECONDS" --thinking "$THINKING" --workers "$WORKERS")
@@ -93,7 +101,6 @@ jobs:
           if [ -n "$END_SECONDS" ]; then args+=(--end "$END_SECONDS"); fi
           if [ "$BILINGUAL" = true ]; then args+=(--bilingual); fi
           if [ "$SUBTITLES_ONLY" = true ]; then args+=(--subtitles-only); fi
-          if [ "$GAP_RECOVERY" = false ]; then args+=(--no-gap-recovery); fi
           uv run --no-sync python -m translation "${args[@]}"
       - name: Save output in the private results repository
         env:

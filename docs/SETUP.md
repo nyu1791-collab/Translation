@@ -5,12 +5,27 @@
 GitHub ActionsからGoogle Vertexへの接続はOIDCを使用し、APIキーやサービスアカウント鍵をリポジトリに置きません。このリポジトリ専用のWIFプール・サービスアカウントを作るため、既存ClipForgeの設定は変更しません。
 
 1. 使用するGoogle Cloudプロジェクトの所有者としてCloud Shellを開く。
-2. このリポジトリを取得し、`GOOGLE_CLOUD_PROJECT` と必要なら `TRANSLATION_GITHUB_REPO` を指定して `bash scripts/setup_vertex_wif.sh` を実行する。既定のリポジトリは `nyu1791-collab/Translation`、既定プロジェクトはユーザーの既存Vertexプロジェクト。
-3. スクリプトは `translation-actions` WIFプールと `translation-vertex` サービスアカウントを作り、Translationの `main` だけを許可する。ユーザーの指定により、専用サービスアカウントへプロジェクトの編集者（`roles/editor`）を付与する。プロジェクト内の多くのリソースを変更できる権限であり、他のユーザーへIAM権限を与える権限やGitHub・Driveへの権限を意味しない。認証済みの `gh` があればGitHub Actionsの変数を登録し、それ以外は値を表示する。
+2. このリポジトリを取得し、使いたいプロジェクトIDを明示して `GOOGLE_CLOUD_PROJECT=プロジェクトID bash scripts/setup_vertex_wif.sh` を実行する。既定のリポジトリは `nyu1791-collab/Translation`、既定プロジェクトはユーザーの既存Vertexプロジェクト。
+3. スクリプトは指定プロジェクトに `translation-actions` WIFプールと `translation-vertex` サービスアカウントを作り、Translationの `main` だけを許可する。ユーザーの指定により、専用サービスアカウントへそのプロジェクトの編集者（`roles/editor`）を付与する。プロジェクト内の多くのリソースを変更できる権限であり、他のユーザーへIAM権限を与える権限やGitHub・Driveへの権限を意味しない。
 4. Repository Settings → Secrets and variables → Actions で、非公開の保存先リポジトリを読み書きできる `TRANSLATION_STORAGE_TOKEN` を登録する。既存の別リポジトリのSecret値はGitHubから読み戻せないため、手動登録または組織Secretの付与が必要。YouTube認証が必要な素材に限り `YOUTUBE_COOKIES_B64` も登録する。
 5. Actions → Translation video → Run workflow から、公開動画URLと必要なオプションを入力する。`translation-result-RUN_ID` のReleaseが非公開保存先に作成される。
 
-必要なActions変数：`TRANSLATION_WIF_PROVIDER`。`TRANSLATION_PROJECT_ID`、`TRANSLATION_SERVICE_ACCOUNT`、`TRANSLATION_STORAGE_REPO` は既存のユーザー環境を既定にしてあり、変数で変更できる。Google Cloud側に専用サービスアカウントとWIFを作る必要はある。GitHub Actionsのトークンは保存先が非公開か確認したうえでReleaseを作成する。動画・文字起こし・翻訳・字幕は公開リポジトリのActions artifactへは保存しない。
+スクリプトは、認証済みの `gh` が変数を読み書きできる場合、プロジェクトごとの接続先を `TRANSLATION_PROJECTS` に追加する。既存の別プロジェクトの項目と既定値は保持する。`gh` が使えない場合は追加するJSONの項目を表示するので、Repository Settings → Secrets and variables → Actions のVariablesに登録する。既存の `TRANSLATION_WIF_PROVIDER` と `TRANSLATION_SERVICE_ACCOUNT` は既定プロジェクト用として引き続き利用できる。
+
+## 複数プロジェクトで使う
+
+各プロジェクトごとに、その所有者のCloud Shellから次を実行する。既存の `Translation` フォルダ内なら `git pull` からでよい。
+
+```bash
+git pull
+GOOGLE_CLOUD_PROJECT=別のプロジェクトID bash scripts/setup_vertex_wif.sh
+```
+
+Actionsの `project_id` に登録済みのIDを入力すると、そのプロジェクトのWIFとサービスアカウントで接続し、同じIDのVertexへ要求する。空欄なら `TRANSLATION_PROJECT_ID` または従来の既定値を使う。`TRANSLATION_SET_DEFAULT=1` を併せて設定スクリプトに渡すと、登録成功時にそのプロジェクトを既定にできる。`project_id` にはIDを指定し、プロジェクト番号は入力しない。未登録のプロジェクトへは別の認証先を勝手に流用しない。
+
+ローカルでは、権限のあるApplication Default Credentialsを用意し `python -m translation 動画 --output 出力先 --project プロジェクトID` と指定できる。各プロジェクトでVertex AI APIの有効化・課金・モデル提供・IAMの確認が必要で、設定スクリプトは課金を有効にしない。API要求は指定プロジェクトに送られ、そのプロジェクトの設定・利用状況に従う。
+
+GitHub Actionsの保存用トークンは保存先が非公開か確認したうえでReleaseを作成する。動画・文字起こし・翻訳・字幕は公開リポジトリのActions artifactへは保存しない。
 
 ## 注意点と再開
 

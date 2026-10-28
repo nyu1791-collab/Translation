@@ -50,17 +50,56 @@ translation_wif="projects/$translation_number/locations/global/workloadIdentityP
 echo "TRANSLATION_PROJECT_ID=$translation_project"
 echo "TRANSLATION_SERVICE_ACCOUNT=$translation_sa"
 echo "TRANSLATION_WIF_PROVIDER=$translation_wif"
-echo "TRANSLATION_STORAGE_REPO=${TRANSLATION_STORAGE_REPO:-nyu1791-collab/ai-model-workers}"
+translation_entry=$(TRANSLATION_MAP_PROJECT="$translation_project" TRANSLATION_MAP_SA="$translation_sa" TRANSLATION_MAP_WIF="$translation_wif" python3 - <<'PYCODE'
+import json, os
+print(json.dumps({os.environ["TRANSLATION_MAP_PROJECT"]: {"provider": os.environ["TRANSLATION_MAP_WIF"], "service_account": os.environ["TRANSLATION_MAP_SA"]}}, separators=(",", ":")))
+PYCODE
+)
+echo "Add this entry to TRANSLATION_PROJECTS if automatic registration is unavailable: $translation_entry"
 if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-  if gh variable set TRANSLATION_PROJECT_ID --repo "$translation_repo" --body "$translation_project" && \
-     gh variable set TRANSLATION_SERVICE_ACCOUNT --repo "$translation_repo" --body "$translation_sa" && \
-     gh variable set TRANSLATION_WIF_PROVIDER --repo "$translation_repo" --body "$translation_wif" && \
-     gh variable set TRANSLATION_STORAGE_REPO --repo "$translation_repo" --body "${TRANSLATION_STORAGE_REPO:-nyu1791-collab/ai-model-workers}"; then
-    echo 'GitHub Actions variables registered.'
+  translation_map_file=$(mktemp)
+  translation_gh_error=$(mktemp)
+  translation_map_ready=false
+  translation_map_registered=false
+  if gh variable get TRANSLATION_PROJECTS --repo "$translation_repo" >"$translation_map_file" 2>"$translation_gh_error"; then
+    translation_map_ready=true
+  elif grep -Eqi 'HTTP 404|not found' "$translation_gh_error"; then
+    printf '{}\n' >"$translation_map_file"
+    translation_map_ready=true
   else
-    echo 'Could not register all GitHub variables; set the values printed above in repository settings.' >&2
+    echo 'Cannot read existing TRANSLATION_PROJECTS; leaving GitHub variables unchanged.' >&2
+  fi
+  if [ "$translation_map_ready" = true ]; then
+    if translation_merged=$(TRANSLATION_MAP_ENTRY="$translation_entry" python3 - "$translation_map_file" <<'PYCODE'
+import json, os, sys
+existing = json.load(open(sys.argv[1], encoding="utf-8"))
+if not isinstance(existing, dict):
+    raise ValueError("TRANSLATION_PROJECTS must be a JSON object")
+existing.update(json.loads(os.environ["TRANSLATION_MAP_ENTRY"]))
+print(json.dumps(existing, ensure_ascii=False, separators=(",", ":")))
+PYCODE
+    ); then
+      if gh variable set TRANSLATION_PROJECTS --repo "$translation_repo" --body "$translation_merged"; then
+        translation_map_registered=true
+        echo 'Project added to GitHub Actions TRANSLATION_PROJECTS.'
+      else
+        echo 'Could not register project; add the entry printed above manually.' >&2
+      fi
+    else
+      echo 'Invalid existing TRANSLATION_PROJECTS; it was not overwritten.' >&2
+    fi
+  fi
+  rm -f "$translation_map_file" "$translation_gh_error"
+  if [ "${TRANSLATION_SET_DEFAULT:-0}" = 1 ]; then
+    if [ "$translation_map_registered" != true ]; then
+      echo 'Default project was not changed because the new project was not registered.' >&2
+    elif gh variable set TRANSLATION_PROJECT_ID --repo "$translation_repo" --body "$translation_project"; then
+      echo 'Default project updated.'
+    else
+      echo 'Could not update default project; set TRANSLATION_PROJECT_ID manually.' >&2
+    fi
   fi
 else
-  echo 'Set the values printed above in GitHub Actions variables.'
+  echo 'Set the TRANSLATION_PROJECTS entry printed above in GitHub Actions variables.'
 fi
 echo 'Set TRANSLATION_STORAGE_TOKEN as an Actions secret with access to the private results repository.'

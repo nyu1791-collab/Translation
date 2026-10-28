@@ -27,6 +27,8 @@ python -m translation 'https://www.youtube.com/watch?v=VIDEO_ID' --output ./outp
 
 Vertexの利用権限とモデル提供状況が必要です。完成物・キャッシュ・動画は出力ディレクトリに保管されます。公開リポジトリ内へ入れないでください。CLIはローカルファイルも使えます。
 
+別のGoogle Cloudプロジェクトを使う場合、ローカルでは `--project プロジェクトID` を指定します。GitHub Actionsでは、各プロジェクトを一度接続設定してから `project_id` で選択できます。既存のプロジェクトの接続は維持します。[複数プロジェクトの接続手順](docs/SETUP.md#複数プロジェクトで使う)
+
 ```bash
 # 途中の範囲だけ。時刻は元動画の秒数
 python -m translation input.mp4 --output ./output/clip --start 180 --end 600 --source-language en-US
@@ -49,6 +51,7 @@ python -m translation input.mp4 --output ./output/gpu --encoder h264_nvenc
 | 元の言語 | 自動判定 | `--source-language en-US`, `ko-KR`, `fr-FR` |
 | 翻訳先 | 日本語 | `--target-language English` |
 | 並列数 | 6 | `--workers 3` |
+| Google Cloud | 環境変数またはActionsの既定プロジェクト | `--project プロジェクトID`、Actionsの `project_id` |
 | 翻訳バッチ | 60発話 | `--batch-size 40` |
 | 整文・翻訳 | `gemini-3.5-flash`／MEDIUM | `--thinking LOW` または `HIGH` |
 | 出力 | 360p／CPU | `--height 720`、`--height 0` は元解像度、`--encoder h264_nvenc` |
