@@ -59,7 +59,9 @@ def test_already_enabled_services_skip_mutating_request(tmp_path):
     )
     assert result.returncode == 0
     assert "Required Google Cloud services are already enabled" in result.stdout
-    assert "services enable" not in (tmp_path / "calls").read_text()
+    calls = (tmp_path / "calls").read_text()
+    assert "services enable" not in calls
+    assert "--role=roles/editor" in calls
 
 
 def test_rate_limit_retries_only_missing_services(tmp_path):

@@ -6,7 +6,7 @@ GitHub ActionsからGoogle Vertexへの接続はOIDCを使用し、APIキーや�
 
 1. 使用するGoogle Cloudプロジェクトの所有者としてCloud Shellを開く。
 2. このリポジトリを取得し、`GOOGLE_CLOUD_PROJECT` と必要なら `TRANSLATION_GITHUB_REPO` を指定して `bash scripts/setup_vertex_wif.sh` を実行する。既定のリポジトリは `nyu1791-collab/Translation`、既定プロジェクトはユーザーの既存Vertexプロジェクト。
-3. スクリプトは `translation-actions` WIFプールと `translation-vertex` サービスアカウントを作り、Translationの `main` だけを許可する。認証済みの `gh` があればGitHub Actionsの変数を登録し、それ以外は値を表示する。
+3. スクリプトは `translation-actions` WIFプールと `translation-vertex` サービスアカウントを作り、Translationの `main` だけを許可する。ユーザーの指定により、専用サービスアカウントへプロジェクトの編集者（`roles/editor`）を付与する。プロジェクト内の多くのリソースを変更できる権限であり、他のユーザーへIAM権限を与える権限やGitHub・Driveへの権限を意味しない。認証済みの `gh` があればGitHub Actionsの変数を登録し、それ以外は値を表示する。
 4. Repository Settings → Secrets and variables → Actions で、非公開の保存先リポジトリを読み書きできる `TRANSLATION_STORAGE_TOKEN` を登録する。既存の別リポジトリのSecret値はGitHubから読み戻せないため、手動登録または組織Secretの付与が必要。YouTube認証が必要な素材に限り `YOUTUBE_COOKIES_B64` も登録する。
 5. Actions → Translation video → Run workflow から、公開動画URLと必要なオプションを入力する。`translation-result-RUN_ID` のReleaseが非公開保存先に作成される。
 

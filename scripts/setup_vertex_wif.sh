@@ -34,13 +34,7 @@ fi
 if ! gcloud iam service-accounts describe "$translation_sa" --project="$translation_project" >/dev/null 2>&1; then
   gcloud iam service-accounts create translation-vertex --display-name='Translation Vertex caller' --project="$translation_project" --quiet
 fi
-translation_permissions='aiplatform.endpoints.predict,serviceusage.services.use'
-if gcloud iam roles describe translationVertexGenerate --project="$translation_project" >/dev/null 2>&1; then
-  gcloud iam roles update translationVertexGenerate --project="$translation_project" --permissions="$translation_permissions" --quiet
-else
-  gcloud iam roles create translationVertexGenerate --project="$translation_project" --title='Translation Gemini generation only' --permissions="$translation_permissions" --stage=GA --quiet
-fi
-gcloud projects add-iam-policy-binding "$translation_project" --member="serviceAccount:$translation_sa" --role="projects/$translation_project/roles/translationVertexGenerate" --condition=None --quiet >/dev/null
+gcloud projects add-iam-policy-binding "$translation_project" --member="serviceAccount:$translation_sa" --role="roles/editor" --condition=None --quiet >/dev/null
 if ! gcloud iam workload-identity-pools describe "$translation_pool" --location=global --project="$translation_project" >/dev/null 2>&1; then
   gcloud iam workload-identity-pools create "$translation_pool" --location=global --display-name='Translation Actions' --project="$translation_project" --quiet
 fi
