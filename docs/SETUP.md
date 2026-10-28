@@ -10,7 +10,7 @@ GitHub ActionsからGoogle Vertexへの接続はOIDCを使用し、APIキーや�
 4. Repository Settings → Secrets and variables → Actions で、非公開の保存先リポジトリを読み書きできる `TRANSLATION_STORAGE_TOKEN` を登録する。既存の別リポジトリのSecret値はGitHubから読み戻せないため、手動登録または組織Secretの付与が必要。YouTube認証が必要な素材に限り `YOUTUBE_COOKIES_B64` も登録する。
 5. Actions → Translation video → Run workflow から、公開動画URLと必要なオプションを入力する。`translation-result-RUN_ID` のReleaseが非公開保存先に作成される。
 
-必要なActions変数：`TRANSLATION_PROJECT_ID`、`TRANSLATION_WIF_PROVIDER`、`TRANSLATION_SERVICE_ACCOUNT`、`TRANSLATION_STORAGE_REPO`。GitHub Actionsのトークンは保存先が非公開か確認したうえでReleaseを作成する。動画・文字起こし・翻訳・字幕は公開リポジトリのActions artifactへは保存しない。
+必要なActions変数：`TRANSLATION_WIF_PROVIDER`。`TRANSLATION_PROJECT_ID`、`TRANSLATION_SERVICE_ACCOUNT`、`TRANSLATION_STORAGE_REPO` は既存のユーザー環境を既定にしてあり、変数で変更できる。Google Cloud側に専用サービスアカウントとWIFを作る必要はある。GitHub Actionsのトークンは保存先が非公開か確認したうえでReleaseを作成する。動画・文字起こし・翻訳・字幕は公開リポジトリのActions artifactへは保存しない。
 
 ## 注意点と再開
 
