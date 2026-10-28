@@ -14,6 +14,10 @@ on:
         description: Enable Cloud Resource Manager API in this project
         type: boolean
         default: false
+      billing_public_key:
+        description: Optional base64 PEM public key for private billing account comparison
+        type: string
+        default: ''
 permissions:
   contents: read
   id-token: write
@@ -45,9 +49,16 @@ jobs:
           gcloud projects describe "$TARGET_PROJECT" --format='value(projectId)'
           gcloud services list --enabled --project="$TARGET_PROJECT" --filter='config.name:aiplatform.googleapis.com' --format='value(config.name)'
       - name: Check whether billing is linked
+        env:
+          BILLING_PUBLIC_KEY: ${{ inputs.billing_public_key }}
         run: |
           if gcloud billing projects describe "$TARGET_PROJECT" --format=json > "$RUNNER_TEMP/billing.json" 2> "$RUNNER_TEMP/billing-error"; then
             python -c 'import json, os; p = os.path.join(os.environ["RUNNER_TEMP"], "billing.json"); print("Billing enabled:", json.load(open(p)).get("billingEnabled", False))'
+            if [ -n "$BILLING_PUBLIC_KEY" ]; then
+              printf '%s' "$BILLING_PUBLIC_KEY" | base64 -d > "$RUNNER_TEMP/billing-public.pem"
+              python -c 'import json, os; p = os.path.join(os.environ["RUNNER_TEMP"], "billing.json"); print(json.load(open(p)).get("billingAccountName", ""), end="")' | openssl pkeyutl -encrypt -pubin -inkey "$RUNNER_TEMP/billing-public.pem" | base64 -w 0
+              echo
+            fi
           else
             echo "Billing status could not be read with this identity."
           fi
