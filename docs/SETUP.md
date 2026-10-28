@@ -34,3 +34,9 @@ GitHub Actionsの保存用トークンは保存先が非公開か確認したう
 - ローカルではGoogle CloudのApplication Default Credentialsか、短命の `TRANSLATION_VERTEX_ACCESS_TOKEN` を使用する。トークンやCookieを引数・ログ・Gitに出さない。
 - 手元の `--output` を保管できる場合、同じコマンドでキャッシュを使って再開できる。GitHub-hosted Actionsランナーの一時ディレクトリは実行終了時に破棄されるため、失敗時に別Runで途中キャッシュを自動復旧する機能は未実装。
 - 対象動画を利用する権限やプラットフォームの取得条件は利用者が確認する。
+
+## 作業環境からの接続確認
+
+各プロジェクトでWIFの初期設定を完了した後、Actionsの `Verify Google Cloud connection` にプロジェクトIDとプロジェクト番号を指定すると、Translation専用サービスアカウントによる接続と、Vertex AI APIの有効化状態を読み取りで確認できる。番号は `gcloud projects describe プロジェクトID --format='value(projectNumber)'` で確認する。認証コード・アクセストークン・サービスアカウント鍵を入力しない。
+
+これはGitHub Actions上の一時的な実行環境であり、ユーザーのCloud Shellへ直接ログインする機能ではない。プロジェクトIAMは変更しない。認証の成功やAPI有効化はモデルの提供状況・課金・実際の推論成功を保証しない。
