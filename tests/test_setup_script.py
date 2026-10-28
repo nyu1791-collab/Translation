@@ -37,6 +37,12 @@ elif args[:2] == ["services", "enable"]:
         flag.touch()
         print("HTTP 429: RATE_LIMIT_EXCEEDED", file=sys.stderr)
         sys.exit(1)
+elif args[:2] == ["projects", "add-iam-policy-binding"]:
+    flag = pathlib.Path(os.environ["TEST_FLAG"])
+    if os.environ.get("TEST_MODE") == "service_account_lag" and not flag.exists():
+        flag.touch()
+        print("Service account newly created\\ndoes not exist", file=sys.stderr)
+        sys.exit(1)
 """)
     (binary / "gh").write_text("#!/bin/sh\nexit 1\n")
     (binary / "sleep").write_text('#!/bin/sh\necho "$1" >> "$TEST_SLEEP"\n')
@@ -96,6 +102,21 @@ def test_permission_denial_does_not_retry(tmp_path):
     assert result.returncode != 0
     assert "PERMISSION_DENIED" in result.stderr
     assert not (tmp_path / "sleep").exists()
+
+
+def test_new_service_account_visibility_is_retried(tmp_path):
+    env = {
+        **setup_stub(tmp_path),
+        "TEST_ENABLED": SERVICES,
+        "TEST_MODE": "service_account_lag",
+    }
+    result = subprocess.run(
+        ["bash", str(SCRIPT)], env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    assert (tmp_path / "sleep").read_text().strip() == "10"
+    calls = (tmp_path / "calls").read_text()
+    assert calls.count("projects add-iam-policy-binding") == 2
 
 
 def test_new_project_registration_preserves_existing_project(tmp_path):

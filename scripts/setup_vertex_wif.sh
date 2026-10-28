@@ -34,7 +34,21 @@ fi
 if ! gcloud iam service-accounts describe "$translation_sa" --project="$translation_project" >/dev/null 2>&1; then
   gcloud iam service-accounts create translation-vertex --display-name='Translation Vertex caller' --project="$translation_project" --quiet
 fi
-gcloud projects add-iam-policy-binding "$translation_project" --member="serviceAccount:$translation_sa" --role="roles/editor" --condition=None --quiet >/dev/null
+translation_binding_error=$(mktemp)
+for translation_attempt in 1 2 3; do
+  if gcloud projects add-iam-policy-binding "$translation_project" --member="serviceAccount:$translation_sa" --role="roles/editor" --condition=None --quiet >/dev/null 2>"$translation_binding_error"; then
+    rm -f "$translation_binding_error"
+    break
+  fi
+  if [ "$translation_attempt" -lt 3 ] && grep -qi 'service account' "$translation_binding_error" && grep -qi 'does not exist' "$translation_binding_error"; then
+    echo 'New service account is not yet visible to IAM; waiting before retry.' >&2
+    sleep $((translation_attempt * 10))
+  else
+    cat "$translation_binding_error" >&2
+    rm -f "$translation_binding_error"
+    exit 1
+  fi
+done
 if ! gcloud iam workload-identity-pools describe "$translation_pool" --location=global --project="$translation_project" >/dev/null 2>&1; then
   gcloud iam workload-identity-pools create "$translation_pool" --location=global --display-name='Translation Actions' --project="$translation_project" --quiet
 fi
