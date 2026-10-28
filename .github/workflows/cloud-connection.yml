@@ -44,3 +44,10 @@ jobs:
           set -euo pipefail
           gcloud projects describe "$TARGET_PROJECT" --format='value(projectId)'
           gcloud services list --enabled --project="$TARGET_PROJECT" --filter='config.name:aiplatform.googleapis.com' --format='value(config.name)'
+      - name: Check whether billing is linked
+        run: |
+          if gcloud beta billing projects describe "$TARGET_PROJECT" --format=json > "$RUNNER_TEMP/billing.json" 2> "$RUNNER_TEMP/billing-error"; then
+            python -c 'import json, os; p = os.path.join(os.environ["RUNNER_TEMP"], "billing.json"); print("Billing enabled:", json.load(open(p)).get("billingEnabled", False))'
+          else
+            echo "Billing status could not be read with this identity."
+          fi
