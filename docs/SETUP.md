@@ -39,4 +39,4 @@ GitHub Actionsの保存用トークンは保存先が非公開か確認したう
 
 各プロジェクトでWIFの初期設定を完了した後、Actionsの `Verify Google Cloud connection` にプロジェクトIDとプロジェクト番号を指定すると、Translation専用サービスアカウントによる接続と、Vertex AI APIの有効化状態を読み取りで確認できる。番号は `gcloud projects describe プロジェクトID --format='value(projectNumber)'` で確認する。認証コード・アクセストークン・サービスアカウント鍵を入力しない。
 
-これはGitHub Actions上の一時的な実行環境であり、ユーザーのCloud Shellへ直接ログインする機能ではない。プロジェクトIAMは変更しない。認証の成功やAPI有効化はモデルの提供状況・課金・実際の推論成功を保証しない。
+これはGitHub Actions上の一時的な実行環境であり、ユーザーのCloud Shellへ直接ログインする機能ではない。既定ではプロジェクトIAMやAPI設定を変更しない。`enable_resource_manager` を明示した場合に限り、Cloud Resource Manager APIを有効化してから確認する。認証の成功やAPI有効化はモデルの提供状況・課金・実際の推論成功を保証しない。

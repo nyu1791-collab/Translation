@@ -9,7 +9,7 @@ translation_pool='translation-actions'
 translation_provider='github'
 translation_enabled=$(gcloud services list --enabled --project="$translation_project" --format='value(config.name)')
 translation_missing=()
-for translation_service in aiplatform.googleapis.com iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com; do
+for translation_service in aiplatform.googleapis.com iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com cloudresourcemanager.googleapis.com; do
   if ! grep -Fxq "$translation_service" <<<"$translation_enabled"; then
     translation_missing+=("$translation_service")
   fi

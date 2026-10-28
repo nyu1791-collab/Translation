@@ -10,6 +10,10 @@ on:
         description: Google Cloud project number
         type: string
         required: true
+      enable_resource_manager:
+        description: Enable Cloud Resource Manager API in this project
+        type: boolean
+        default: false
 permissions:
   contents: read
   id-token: write
@@ -32,6 +36,9 @@ jobs:
           service_account: translation-vertex@${{ inputs.project_id }}.iam.gserviceaccount.com
           create_credentials_file: true
       - uses: google-github-actions/setup-gcloud@v2
+      - name: Enable Cloud Resource Manager API when explicitly requested
+        if: ${{ inputs.enable_resource_manager }}
+        run: gcloud services enable cloudresourcemanager.googleapis.com --project="$TARGET_PROJECT" --quiet
       - name: Check project access without modifying settings
         run: |
           set -euo pipefail
