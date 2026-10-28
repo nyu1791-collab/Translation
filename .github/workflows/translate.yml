@@ -64,6 +64,13 @@ jobs:
       STORE_REPO: ${{ vars.TRANSLATION_STORAGE_REPO || 'nyu1791-collab/ai-model-workers' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Confirm private output store access before processing
+        env:
+          GH_TOKEN: ${{ secrets.TRANSLATION_STORAGE_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN" || { echo 'Register TRANSLATION_STORAGE_TOKEN for the private output repository.' >&2; exit 1; }
+          test "$(gh api "repos/$STORE_REPO" --jq '.private == true and .permissions.push == true')" = true || { echo 'The output repository must be private and writable by the configured token.' >&2; exit 1; }
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

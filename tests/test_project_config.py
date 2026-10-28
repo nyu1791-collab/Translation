@@ -1,7 +1,11 @@
 import json
 
 import pytest
-from translation.project_config import resolve_project
+from translation.project_config import (
+    DEFAULT_PROJECT,
+    DEFAULT_PROVIDER,
+    resolve_project,
+)
 
 PROVIDER_ONE = "projects/111111111111/locations/global/workloadIdentityPools/translation-actions/providers/github"
 PROVIDER_TWO = "projects/222222222222/locations/global/workloadIdentityPools/translation-actions/providers/github"
@@ -16,6 +20,12 @@ def test_legacy_default_still_connects_to_its_own_project():
         "provider": PROVIDER_ONE,
         "service_account": ACCOUNT_ONE,
     }
+
+
+def test_verified_original_project_uses_its_default_provider():
+    result = resolve_project("", "", "", "", "")
+    assert result["project_id"] == DEFAULT_PROJECT
+    assert result["provider"] == DEFAULT_PROVIDER
 
 
 def test_second_project_uses_its_own_identity():

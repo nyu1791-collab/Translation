@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 DEFAULT_PROJECT = "project-fdadb4dd-cb77-4270-9cd"
+DEFAULT_PROVIDER = "projects/793547679344/locations/global/workloadIdentityPools/translation-actions/providers/github"
 
 
 def resolve_project(
@@ -28,7 +29,9 @@ def resolve_project(
         provider = entry.get("provider", "")
         account = entry.get("service_account", "")
     elif selected == default_project:
-        provider = legacy_provider
+        provider = legacy_provider or (
+            DEFAULT_PROVIDER if selected == DEFAULT_PROJECT else ""
+        )
         if legacy_account and not legacy_account.endswith(
             f"@{selected}.iam.gserviceaccount.com"
         ):

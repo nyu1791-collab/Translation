@@ -10,7 +10,7 @@ GitHub ActionsからGoogle Vertexへの接続はOIDCを使用し、APIキーや�
 4. Repository Settings → Secrets and variables → Actions で、非公開の保存先リポジトリを読み書きできる `TRANSLATION_STORAGE_TOKEN` を登録する。既存の別リポジトリのSecret値はGitHubから読み戻せないため、手動登録または組織Secretの付与が必要。YouTube認証が必要な素材に限り `YOUTUBE_COOKIES_B64` も登録する。
 5. Actions → Translation video → Run workflow から、公開動画URLと必要なオプションを入力する。`translation-result-RUN_ID` のReleaseが非公開保存先に作成される。
 
-スクリプトは、認証済みの `gh` が変数を読み書きできる場合、プロジェクトごとの接続先を `TRANSLATION_PROJECTS` に追加する。既存の別プロジェクトの項目と既定値は保持する。`gh` が使えない場合は追加するJSONの項目を表示するので、Repository Settings → Secrets and variables → Actions のVariablesに登録する。既存の `TRANSLATION_WIF_PROVIDER` と `TRANSLATION_SERVICE_ACCOUNT` は既定プロジェクト用として引き続き利用できる。
+スクリプトは、認証済みの `gh` が変数を読み書きできる場合、プロジェクトごとの接続先を `TRANSLATION_PROJECTS` に追加する。既存の別プロジェクトの項目と既定値は保持する。`gh` が使えない場合は追加するJSONの項目を表示するので、Repository Settings → Secrets and variables → Actions のVariablesに登録する。既存の `TRANSLATION_WIF_PROVIDER` と `TRANSLATION_SERVICE_ACCOUNT` は既定プロジェクト用として引き続き利用できる。元の既定プロジェクトについては、確認済みのWIFを変数未登録時の既定値として使用する。
 
 ## 複数プロジェクトで使う
 
