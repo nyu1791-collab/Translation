@@ -5,6 +5,7 @@ import hashlib
 import http.client
 import json
 import os
+import random
 from pathlib import Path
 import socket
 import threading
@@ -36,6 +37,16 @@ class Vertex:
         self._lock = threading.Lock()
         self._credentials = None
 
+    def record(self, row):
+        """Record metadata only; never write source text, audio, or credentials."""
+        if os.environ.get("GITHUB_RUN_ID"):
+            row["workflow_run"] = os.environ["GITHUB_RUN_ID"]
+        with self._lock:
+            path = self.cache / "request-usage.jsonl"
+            with path.open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(row, ensure_ascii=False) + "\n")
+        print(json.dumps(row, ensure_ascii=False), flush=True)
+
     def token(self):
         token = os.environ.get("TRANSLATION_VERTEX_ACCESS_TOKEN")
         if token:
@@ -56,15 +67,28 @@ class Vertex:
         key = identity({"project": self.project, "model": model, **cache_identity})
         file = self.cache / (key + ".json")
         if file.is_file():
+            self.record({"route": "vertex", "project": self.project, "location": "global", "model": model,
+                         "operation": cache_identity.get("operation"), "request_id": key, "status": "reused"})
             return json.loads(file.read_text(encoding="utf-8"))
         endpoint = f"https://aiplatform.googleapis.com/v1/projects/{self.project}/locations/global/publishers/google/models/{model}:generateContent"
         payload = json.dumps(body, ensure_ascii=False).encode()
         for attempt in range(3):
+            started = time.monotonic()
+            row = {"route": "vertex", "project": self.project, "location": "global", "model": model,
+                   "operation": cache_identity.get("operation"), "request_id": key, "attempt": attempt + 1,
+                   "started_at": time.time(), "status": "failed"}
+            retry_after = 0.0
+            try:
+                token = self.token()
+            except Exception as error:
+                row.update(error_type=type(error).__name__, elapsed_seconds=round(time.monotonic()-started, 3))
+                self.record(row)
+                raise
             request = urllib.request.Request(
                 endpoint,
                 data=payload,
                 headers={
-                    "Authorization": "Bearer " + self.token(),
+                    "Authorization": "Bearer " + token,
                     "Content-Type": "application/json",
                 },
             )
@@ -87,8 +111,17 @@ class Vertex:
                             "Translation response was not valid JSON"
                         ) from None
                 write_json(file, value)
+                usage = value.get("usageMetadata") or {}
+                row.update(status="received", usage={k: usage[k] for k in (
+                    "promptTokenCount", "candidatesTokenCount", "thoughtsTokenCount", "totalTokenCount",
+                    "promptTokensDetails", "candidatesTokensDetails", "trafficType") if k in usage})
                 return value
             except urllib.error.HTTPError as error:
+                row.update(http_status=error.code, error_type="HTTPError")
+                try:
+                    retry_after = max(0.0, float(error.headers.get("Retry-After", "0")))
+                except (AttributeError, TypeError, ValueError):
+                    pass
                 if (error.code != 429 and not 500 <= error.code <= 599) or attempt == 2:
                     raise VertexHTTPError(error.code) from None
             except (
@@ -97,12 +130,20 @@ class Vertex:
                 ConnectionError,
                 TimeoutError,
                 socket.timeout,
-            ):
+            ) as error:
+                row["error_type"] = type(error).__name__
                 if attempt == 2:
                     raise PipelineError(
                         "Vertex request failed after temporary connection errors"
                     ) from None
-            time.sleep(5 if attempt == 0 else 15)
+            except Exception as error:
+                row["error_type"] = type(error).__name__
+                raise
+            finally:
+                row["elapsed_seconds"] = round(time.monotonic() - started, 3)
+                self.record(row)
+            delay = max(retry_after, (15 if attempt == 0 else 45) + random.uniform(0, 5))
+            time.sleep(delay)
         raise PipelineError("Vertex request failed")
 
     def transcribe(self, audio_path, language, cache_identity):

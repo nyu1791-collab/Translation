@@ -44,6 +44,10 @@ on:
         description: Produce subtitle files without video rendering
         type: boolean
         default: false
+      resume_run_id:
+        description: Previous run ID whose private model checkpoints should be reused
+        type: string
+        default: ''
 permissions:
   contents: read
   id-token: write
@@ -97,6 +101,34 @@ jobs:
           workload_identity_provider: ${{ steps.project.outputs.provider }}
           service_account: ${{ steps.project.outputs.service_account }}
           create_credentials_file: true
+      - name: Restore private model checkpoints
+        if: inputs.resume_run_id != ''
+        env:
+          GH_TOKEN: ${{ secrets.TRANSLATION_STORAGE_TOKEN }}
+          RESUME_RUN_ID: ${{ inputs.resume_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$RESUME_RUN_ID" =~ ^[0-9]{1,20}$ ]]
+          test "$(gh api "repos/$STORE_REPO" --jq .private)" = true
+          gh release download "translation-checkpoints-$RESUME_RUN_ID" --repo "$STORE_REPO" --pattern translation-checkpoints.zip --dir "$RUNNER_TEMP"
+          python - <<'PY'
+          import os, pathlib, re, zipfile
+          temp = pathlib.Path(os.environ['RUNNER_TEMP'])
+          target = temp / 'translation-output' / 'cache'
+          target.mkdir(parents=True, exist_ok=True, mode=0o700)
+          with zipfile.ZipFile(temp / 'translation-checkpoints.zip') as bundle:
+              items = bundle.infolist()
+              if len(items) > 10000 or sum(item.file_size for item in items) > 256 * 1024 * 1024:
+                  raise ValueError('Checkpoint archive exceeds size limit')
+              names = set()
+              for item in items:
+                  if not re.fullmatch(r'cache/(?:[0-9a-f]{64}\.json|request-usage\.jsonl)', item.filename):
+                      continue
+                  if item.filename in names or item.file_size > 32 * 1024 * 1024:
+                      raise ValueError('Invalid checkpoint archive')
+                  names.add(item.filename)
+                  (target / pathlib.PurePosixPath(item.filename).name).write_bytes(bundle.read(item))
+          PY
       - name: Transcribe, translate and render
         env:
           YOUTUBE_COOKIES_B64: ${{ secrets.YOUTUBE_COOKIES_B64 }}
@@ -109,6 +141,28 @@ jobs:
           if [ "$BILINGUAL" = true ]; then args+=(--bilingual); fi
           if [ "$SUBTITLES_ONLY" = true ]; then args+=(--subtitles-only); fi
           uv run --no-sync python -m translation "${args[@]}"
+      - name: Preserve model checkpoints privately
+        if: always() && steps.project.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.TRANSLATION_STORAGE_TOKEN }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/translation-output"
+          if [ ! -d "$root/cache" ]; then exit 0; fi
+          test -n "$STORE_REPO" && test -n "$GH_TOKEN"
+          test "$(gh api "repos/$STORE_REPO" --jq .private)" = true
+          python - <<'PY'
+          import os, pathlib, zipfile
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'translation-output'
+          dest = pathlib.Path(os.environ['RUNNER_TEMP']) / 'translation-checkpoints.zip'
+          with zipfile.ZipFile(dest, 'w', compression=zipfile.ZIP_DEFLATED) as bundle:
+              for path in (root / 'cache').glob('*.json*'):
+                  bundle.write(path, path.relative_to(root))
+              for name in ('source-identity.json', 'run-state.json'):
+                  path = root / name
+                  if path.is_file(): bundle.write(path, name)
+          PY
+          gh release create "translation-checkpoints-$GITHUB_RUN_ID" "$RUNNER_TEMP/translation-checkpoints.zip" --repo "$STORE_REPO" --latest=false --notes 'Private model checkpoints and usage records.'
       - name: Save output in the private results repository
         env:
           GH_TOKEN: ${{ secrets.TRANSLATION_STORAGE_TOKEN }}

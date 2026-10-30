@@ -32,7 +32,7 @@ GitHub Actionsの保存用トークンは保存先が非公開か確認したう
 - WIFの条件はRepositoryの名前と `refs/heads/main` に限定している。ブランチから手動実行する場合は許可されない。
 - Actionsの実行時間、GPU、音声認識精度、翻訳や同期は保証されない。Actionsの既定描画はCPU。
 - ローカルではGoogle CloudのApplication Default Credentialsか、短命の `TRANSLATION_VERTEX_ACCESS_TOKEN` を使用する。トークンやCookieを引数・ログ・Gitに出さない。
-- 手元の `--output` を保管できる場合、同じコマンドでキャッシュを使って再開できる。GitHub-hosted Actionsランナーの一時ディレクトリは実行終了時に破棄されるため、失敗時に別Runで途中キャッシュを自動復旧する機能は未実装。
+- 同じ入力・設定では保存済みのモデル応答を再利用できる。Actionsは途中の応答と使用量記録を非公開Release `translation-checkpoints-RUN_ID` に保存する。別Runの `resume_run_id` に元のRun IDを明示すると、対応するキャッシュを復元する。素材自体は再取得するため、入力の識別が一致する応答だけが再利用される。失敗時にチェックポイント保存自体が失敗した場合は復元できない。
 - 対象動画を利用する権限やプラットフォームの取得条件は利用者が確認する。
 
 ## 作業環境からの接続確認

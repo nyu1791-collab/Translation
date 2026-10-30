@@ -88,6 +88,46 @@ def test_vertex_payload_uses_detected_language_and_source_specific_cache(
     assert captured[0][2]["source_sha256"] != captured[1][2]["source_sha256"]
 
 
+def test_vertex_records_usage_without_source_or_credentials(tmp_path, monkeypatch):
+    import io
+    import urllib.request
+
+    client = Vertex("sample", tmp_path / "cache")
+    monkeypatch.setattr(client, "token", lambda: "secret-token")
+    value = {"candidates": [{"finishReason": "STOP", "content": {"parts": []}}],
+             "usageMetadata": {"promptTokenCount": 42, "totalTokenCount": 42}}
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: io.BytesIO(json.dumps(value).encode()))
+    body = {"contents": [{"parts": [{"text": "private source text"}]}]}
+    identity = {"operation": "transcribe", "source": "private source text"}
+    assert client.generate("gemini-3.5-transcribe", body, identity) == value
+    assert client.generate("gemini-3.5-transcribe", body, identity) == value
+    text = (tmp_path / "cache" / "request-usage.jsonl").read_text()
+    rows = [json.loads(line) for line in text.splitlines()]
+    assert [row["status"] for row in rows] == ["received", "reused"]
+    assert rows[0]["usage"]["promptTokenCount"] == 42
+    assert "private source text" not in text and "secret-token" not in text
+
+
+def test_actions_restores_only_safe_checkpoint_names(tmp_path, monkeypatch):
+    import textwrap
+    import zipfile
+
+    workflow = Path('.github/workflows/translate.yml').read_text()
+    restore = workflow.split('- name: Restore private model checkpoints', 1)[1]
+    script = restore.split("          python - <<'PY'\n", 1)[1].split('          PY\n', 1)[0]
+    name = 'a' * 64 + '.json'
+    with zipfile.ZipFile(tmp_path / 'translation-checkpoints.zip', 'w') as bundle:
+        bundle.writestr('cache/' + name, '{"ok":true}')
+        bundle.writestr('cache/request-usage.jsonl', '{}\n')
+        bundle.writestr('cache/../../escape.json', '{}')
+    monkeypatch.setenv('RUNNER_TEMP', str(tmp_path))
+    exec(compile(textwrap.dedent(script), 'checkpoint-restore', 'exec'), {})
+    cache = tmp_path / 'translation-output' / 'cache'
+    assert json.loads((cache / name).read_text()) == {'ok': True}
+    assert (cache / 'request-usage.jsonl').is_file()
+    assert not (tmp_path / 'escape.json').exists()
+
+
 def test_full_video_flow_with_synthetic_input_and_mock_models(tmp_path, monkeypatch):
     video = tmp_path / "input.mp4"
     subprocess.run(
