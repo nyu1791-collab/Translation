@@ -303,49 +303,42 @@ def run(source, output, options):
     duration = clip_end - clip_start
     if duration > options["max_seconds"]:
         raise PipelineError("Source exceeds the configured duration limit")
-    run_key = identity(
-        {
-            "source_sha256": source_hash,
-            "start": clip_start,
-            "end": clip_end,
-            **{
-                k: v
-                for k, v in options.items()
-                if k not in {"max_bytes", "max_seconds", "workers"}
-            },
-        }
-    )
+    presentation_fields = {"height", "encoder", "preset", "font", "font_size", "line_chars", "bilingual", "subtitles_only"}
+    content = {"source_sha256": source_hash, "start": clip_start, "end": clip_end,
+               **{k:v for k,v in options.items() if k not in {"max_bytes", "max_seconds", "workers"}}}
+    legacy_key = identity(content)
+    run_key = identity({k:v for k,v in content.items() if k not in presentation_fields})
+    presentation_key = identity({k:options[k] for k in presentation_fields})
     manifest_path = output / "manifest.json"
     state_path = output / "run-state.json"
-    if manifest_path.exists():
-        prior = json.loads(manifest_path.read_text())
-        if prior.get("run_key") != run_key:
-            raise PipelineError(
-                "Output directory belongs to different settings or media"
-            )
+    prior = json.loads(manifest_path.read_text()) if manifest_path.is_file() else None
+    state = json.loads(state_path.read_text()) if state_path.is_file() else None
+    for saved in (prior, state):
+        if saved and saved.get("run_key") not in (run_key, legacy_key):
+            raise PipelineError("Output directory belongs to different settings or media")
+    if not prior and not state and (output / "video.mp4").exists():
+        raise PipelineError("Unidentified output video exists; use a fresh output directory")
+    completed = output / "window-results" / run_key
+    completed.mkdir(parents=True, exist_ok=True)
+    legacy_completed = output / "window-results" / legacy_key
+    if legacy_completed.is_dir() and legacy_completed != completed:
+        for checkpoint in legacy_completed.glob("*.json"):
+            target = completed / checkpoint.name
+            if not target.exists():
+                target.write_bytes(checkpoint.read_bytes())
+    write_json(state_path, {"run_key":run_key})
+    if prior and prior.get("run_key") == legacy_key:
+        prior.update(run_key=run_key, presentation_key=presentation_key)
+        write_json(manifest_path, prior)
+    if prior:
         files = [output / name for name in prior.get("files", [])]
-        if (
-            prior.get("status") in {"complete", "partial", "no_timed_speech"}
-            and files
-            and all(f.is_file() for f in files)
-        ):
+        if (prior.get("presentation_key") == presentation_key
+                and prior.get("status") in {"complete", "partial", "no_timed_speech"}
+                and files and all(f.is_file() for f in files)):
             return prior
-    if state_path.exists():
-        state = json.loads(state_path.read_text())
-        if state.get("run_key") != run_key:
-            raise PipelineError("Saved run belongs to different settings or media")
-    elif (output / "video.mp4").exists():
-        raise PipelineError(
-            "Unidentified output video exists; use a fresh output directory"
-        )
-    else:
-        write_json(state_path, {"run_key": run_key})
     client = Vertex(options["project"], output / "cache")
     starts = windows(duration)
     results = []
-    completed = output / "window-results" / run_key
-    completed.mkdir(parents=True, exist_ok=True)
-
     def process_saved(i, begin):
         checkpoint = completed / f"{i}.json"
         if checkpoint.is_file():
@@ -389,7 +382,7 @@ def run(source, output, options):
     )
     files = ["translation.json", "subtitles.ass", "subtitles.srt"]
     if not options["subtitles_only"]:
-        if not (output / "video.mp4").exists():
+        if not (output / "video.mp4").exists() or not prior or prior.get("presentation_key") != presentation_key:
             render(
                 video,
                 output,
@@ -407,6 +400,7 @@ def run(source, output, options):
         if missing or untimed
         else "complete",
         "run_key": run_key,
+        "presentation_key": presentation_key,
         "source_sha256": source_hash,
         "start_seconds": clip_start,
         "end_seconds": clip_end,

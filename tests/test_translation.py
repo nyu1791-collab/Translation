@@ -154,11 +154,14 @@ def test_full_video_flow_with_synthetic_input_and_mock_models(tmp_path, monkeypa
         check=True,
     )
 
+    model_calls = []
+
     class FakeVertex:
         def __init__(self, project, cache):
             pass
 
         def transcribe(self, audio, language, cache_identity):
+            model_calls.append("transcribe")
             return {
                 "candidates": [
                     {
@@ -189,6 +192,7 @@ def test_full_video_flow_with_synthetic_input_and_mock_models(tmp_path, monkeypa
             }
 
         def translate(self, cues, target, model, thinking):
+            model_calls.append("translate")
             return {"segments": [{"id": c["id"], "text": "こんにちは"} for c in cues]}
 
     monkeypatch.setattr("translation.pipeline.Vertex", FakeVertex)
@@ -211,6 +215,11 @@ def test_full_video_flow_with_synthetic_input_and_mock_models(tmp_path, monkeypa
     assert cue["text"] == "Hello world" and cue["translation"] == "こんにちは"
     assert (cue["start"], cue["end"]) == (0.2, 0.9)
     assert run(str(video), out, options)["run_key"] == result["run_key"]
+    original_calls = list(model_calls)
+    restyled = run(str(video), out, {**options, "font_size": 30, "line_chars": 18})
+    assert restyled["run_key"] == result["run_key"]
+    assert restyled["presentation_key"] != result["presentation_key"]
+    assert model_calls == original_calls
     with pytest.raises(PipelineError, match="different settings"):
         run(str(video), out, {**options, "target_language": "français"})
 
