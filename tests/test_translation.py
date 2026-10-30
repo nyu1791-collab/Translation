@@ -88,6 +88,26 @@ def test_vertex_payload_uses_detected_language_and_source_specific_cache(
     assert captured[0][2]["source_sha256"] != captured[1][2]["source_sha256"]
 
 
+def test_vertex_records_usage_without_source_or_credentials(tmp_path, monkeypatch):
+    import io
+    import urllib.request
+
+    client = Vertex("sample", tmp_path / "cache")
+    monkeypatch.setattr(client, "token", lambda: "secret-token")
+    value = {"candidates": [{"finishReason": "STOP", "content": {"parts": []}}],
+             "usageMetadata": {"promptTokenCount": 42, "totalTokenCount": 42}}
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: io.BytesIO(json.dumps(value).encode()))
+    body = {"contents": [{"parts": [{"text": "private source text"}]}]}
+    identity = {"operation": "transcribe", "source": "private source text"}
+    assert client.generate("gemini-3.5-transcribe", body, identity) == value
+    assert client.generate("gemini-3.5-transcribe", body, identity) == value
+    text = (tmp_path / "cache" / "request-usage.jsonl").read_text()
+    rows = [json.loads(line) for line in text.splitlines()]
+    assert [row["status"] for row in rows] == ["received", "reused"]
+    assert rows[0]["usage"]["promptTokenCount"] == 42
+    assert "private source text" not in text and "secret-token" not in text
+
+
 def test_full_video_flow_with_synthetic_input_and_mock_models(tmp_path, monkeypatch):
     video = tmp_path / "input.mp4"
     subprocess.run(
