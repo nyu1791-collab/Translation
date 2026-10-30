@@ -1,6 +1,6 @@
 # Translation
 
-海外動画の音声を文字起こしし、元の発話時刻を使って日本語などの字幕と字幕付き動画を作るツールです。動画全編と、秒数で指定した範囲の両方に対応します。ClipForgeの素材取得・時刻付き文字起こしの基盤をもとにしています。
+海外動画の音声を文字起こしし、元の発話時刻を使って日本語などの字幕と字幕付き動画を作るツールです。動画全編と、秒数で指定した範囲の両方に対応します。このリポジトリだけで導入・実行でき、他の制作リポジトリやそのPython環境は不要です。
 
 ## 基本の流れ
 
@@ -73,12 +73,14 @@ python -m translation input.mp4 --output ./output/gpu --encoder h264_nvenc
 
 - [pysubs2](https://github.com/tkarabela/pysubs2)（MIT）：SRT・ASSの作成ライブラリ。
 - [BudouX](https://github.com/google/budoux)（Apache-2.0）：日本語の読みやすい文の折り返し。
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp)（Unlicense）：対応サイトのメディア取得。ClipForgeの取得部品から利用。
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp)（Unlicense）：対応サイトのメディア取得。同梱の素材取得部品から利用。
 - [subtitle-translator](https://github.com/dhofverberg/subtitle-translator)（MIT）：字幕のバッチ翻訳と文脈保持の参考。コードはコピーしていません。
 - [Gemini Transcribe公式仕様](https://ai.google.dev/gemini-api/docs/generate-content/transcribe)：言語の自動判定・時刻・話者分離の設定。
 - [VertexのTranscribe仕様](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-5-transcribe)：単語時刻・話者分離時の音声長制限。
 
-`src/clipforge` の素材取得等は同じ所有者の [ClipForge](https://github.com/nyu1791-collab/ClipForge) のコミット `dd994d0` からコピーしています。
+`src/translation/_media` の素材取得等は同じ所有者の [ClipForge](https://github.com/nyu1791-collab/ClipForge) のコミット `dd994d0` からコピーしています。
 
 
 制作の目標・再開・接続の整理は [制作経路の整理](docs/STREAMLINING.md) を参照してください。
+
+保存済み翻訳からSRT・ASS・VTT・原文字幕・対訳表を書き出す方法は [字幕と対訳の書き出し](docs/EXPORT.md)、人名や専門用語の表記指定は [用語集](docs/GLOSSARY.md) を参照してください。

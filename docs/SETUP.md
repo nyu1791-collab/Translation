@@ -1,5 +1,7 @@
 # 初回接続と実行
 
+Translationは、このリポジトリだけで導入・実行できます。別のClipForge・shorts-only・Deliveryの取得やPython環境は不要です。素材取得に使う補助コードは `translation._media` に同梱しており、外部の `clipforge` パッケージを読み込みません。同じPCにClipForgeを置いても名前空間が衝突しない構成です。
+
 ## Google Cloud / GitHub Actions
 
 GitHub ActionsからGoogle Vertexへの接続はOIDCを使用し、APIキーやサービスアカウント鍵をリポジトリに置きません。このリポジトリ専用のWIFプール・サービスアカウントを作るため、既存ClipForgeの設定は変更しません。

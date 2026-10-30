@@ -15,5 +15,6 @@
   "subtitles_only": false,
   "gap_recovery": false,
   "max_bytes": 6442450944,
-  "max_seconds": 21600
+  "max_seconds": 21600,
+  "glossary": {}
 }

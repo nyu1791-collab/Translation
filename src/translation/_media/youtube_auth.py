@@ -74,7 +74,7 @@ def cookie_copy(cookies_file=None):
         raise PipelineError(
             "invalid YouTube cookies: expected a Netscape file containing only YouTube/Google cookies (maximum 1 MiB)"
         ) from None
-    temporary = tempfile.TemporaryDirectory(prefix="clipforge-youtube-auth-")
+    temporary = tempfile.TemporaryDirectory(prefix="translation-youtube-auth-")
     try:
         path = Path(temporary.name) / "cookies.txt"
         descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)

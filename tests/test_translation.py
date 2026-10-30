@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from clipforge.storage import PipelineError
+from translation._media.storage import PipelineError
 from translation.backend import Vertex
 from translation.captions import apply_translation, make_cues, write_subtitles
 from translation.cli import DEFAULTS

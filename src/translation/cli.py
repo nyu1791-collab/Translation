@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import sys
 
-from clipforge.storage import PipelineError
+from translation._media.storage import PipelineError
 from .pipeline import run
 
 DEFAULTS = {
@@ -30,6 +30,7 @@ DEFAULTS = {
     "gap_recovery": False,
     "max_bytes": 6442450944,
     "max_seconds": 21600,
+    "glossary": {},
 }
 
 
@@ -75,6 +76,7 @@ def parser():
     )
     p.add_argument("--max-bytes", type=int)
     p.add_argument("--max-seconds", type=int)
+    p.add_argument("--glossary", type=Path, help="原語→訳語のJSON用語集。既存の翻訳要求に同梱")
     return p
 
 
@@ -93,6 +95,17 @@ def main():
         value = getattr(args, key, None)
         if value is not None:
             options[key] = value
+    glossary = options["glossary"]
+    if isinstance(glossary, Path):
+        try:
+            glossary = json.loads(glossary.expanduser().read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as error:
+            raise SystemExit(f"用語集を読み込めませんでした: {error}") from None
+    if not isinstance(glossary, dict):
+        raise SystemExit("用語集は原語と訳語を並べたJSONオブジェクトにしてください")
+    options["glossary"] = {source.strip(): target.strip() for source, target in glossary.items()
+                           if isinstance(source, str) and isinstance(target, str)
+                           and source.strip() and target.strip()}
     if not options["project"]:
         raise SystemExit("Set --project or GOOGLE_CLOUD_PROJECT")
     if not 1 <= options["workers"] <= 6 or not 1 <= options["batch_size"] <= 200:

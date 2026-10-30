@@ -9,10 +9,10 @@ import tempfile
 import time
 import uuid
 
-from clipforge.media_sources import open_source
-from clipforge.gap_diagnostics import describe_gaps
-from clipforge.storage import PipelineError, digest, process, write_json
-from clipforge.transcribe_adapter import word_segments
+from translation._media.media_sources import open_source
+from translation._media.gap_diagnostics import describe_gaps
+from translation._media.storage import PipelineError, digest, process, write_json
+from translation._media.transcribe_adapter import word_segments
 from .backend import Vertex, VertexHTTPError, identity
 from .captions import apply_translation, make_cues, write_subtitles
 
@@ -242,7 +242,8 @@ def process_window(
     for pos in range(0, len(cues), options["batch_size"]):
         batch = cues[pos : pos + options["batch_size"]]
         response = client.translate(
-            batch, options["target_language"], options["model"], options["thinking"]
+            batch, options["target_language"], options["model"], options["thinking"],
+            **({"glossary": options["glossary"]} if options.get("glossary") else {}),
         )
         rows, absent = apply_translation(batch, response)
         translated.extend(rows)
@@ -306,6 +307,8 @@ def run(source, output, options):
     presentation_fields = {"height", "encoder", "preset", "font", "font_size", "line_chars", "bilingual", "subtitles_only"}
     content = {"source_sha256": source_hash, "start": clip_start, "end": clip_end,
                **{k:v for k,v in options.items() if k not in {"max_bytes", "max_seconds", "workers"}}}
+    if not content.get("glossary"):
+        content.pop("glossary", None)
     legacy_key = identity(content)
     run_key = identity({k:v for k,v in content.items() if k not in presentation_fields})
     presentation_key = identity({k:options[k] for k in presentation_fields})
@@ -409,6 +412,7 @@ def run(source, output, options):
         "target_language": options["target_language"],
         "transcription_model": "gemini-3.5-transcribe",
         "translation_model": options["model"],
+        "glossary_terms": len(options.get("glossary") or {}),
         "thinking": options["thinking"],
         "chunks": len(starts),
         "cue_count": len(cues),
