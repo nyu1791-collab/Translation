@@ -56,7 +56,7 @@ python -m translation input.mp4 --output ./output/gpu --encoder h264_nvenc
 | 整文・翻訳 | `gemini-3.5-flash`／MEDIUM | `--thinking LOW` または `HIGH` |
 | 出力 | 360p／CPU | `--height 720`、`--height 0` は元解像度、`--encoder h264_nvenc` |
 | 字幕 | 翻訳のみ、1行25文字程度 | `--bilingual`、`--subtitles-only`、`--line-chars 20` |
-| 空白補助 | 有効 | `--no-gap-recovery` |
+| 空白補助 | 無効（追加調査なし） | 必要時だけ `--gap-recovery` |
 | 素材取得上限 | 6 GiB・6時間 | `--max-bytes`、`--max-seconds` |
 
 表示秒数・字幕幅などは目安です。目安未達を理由に制作を拒否する品質監査や自動再生成は行いません。HTTP 429・一時的なサーバー／通信エラーは同じモデル要求を合計3回まで再試行します。
@@ -79,3 +79,6 @@ python -m translation input.mp4 --output ./output/gpu --encoder h264_nvenc
 - [VertexのTranscribe仕様](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-5-transcribe)：単語時刻・話者分離時の音声長制限。
 
 `src/clipforge` の素材取得等は同じ所有者の [ClipForge](https://github.com/nyu1791-collab/ClipForge) のコミット `dd994d0` からコピーしています。
+
+
+制作の目標・再開・接続の整理は [制作経路の整理](docs/STREAMLINING.md) を参照してください。

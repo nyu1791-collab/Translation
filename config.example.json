@@ -13,7 +13,7 @@
   "line_chars": 25,
   "bilingual": false,
   "subtitles_only": false,
-  "gap_recovery": true,
+  "gap_recovery": false,
   "max_bytes": 6442450944,
   "max_seconds": 21600
 }

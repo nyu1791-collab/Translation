@@ -343,23 +343,22 @@ def run(source, output, options):
     client = Vertex(options["project"], output / "cache")
     starts = windows(duration)
     results = []
+    completed = output / "window-results" / run_key
+    completed.mkdir(parents=True, exist_ok=True)
+
+    def process_saved(i, begin):
+        checkpoint = completed / f"{i}.json"
+        if checkpoint.is_file():
+            return json.loads(checkpoint.read_text(encoding="utf-8"))
+        result = process_window(
+            client, video, source_hash, begin, min(WINDOW, duration - begin),
+            duration, clip_start, i, len(starts), options,
+        )
+        write_json(checkpoint, result)
+        return result
+
     with ThreadPoolExecutor(max_workers=min(options["workers"], len(starts))) as pool:
-        pending = [
-            pool.submit(
-                process_window,
-                client,
-                video,
-                source_hash,
-                begin,
-                min(WINDOW, duration - begin),
-                duration,
-                clip_start,
-                i,
-                len(starts),
-                options,
-            )
-            for i, begin in enumerate(starts)
-        ]
+        pending = [pool.submit(process_saved, i, begin) for i, begin in enumerate(starts)]
         for future in as_completed(pending):
             results.append(future.result())
     results.sort(key=lambda r: r["chunk"])

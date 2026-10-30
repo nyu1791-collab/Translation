@@ -27,7 +27,7 @@ DEFAULTS = {
     "line_chars": 25,
     "bilingual": False,
     "subtitles_only": False,
-    "gap_recovery": True,
+    "gap_recovery": False,
     "max_bytes": 6442450944,
     "max_seconds": 21600,
 }
@@ -71,7 +71,7 @@ def parser():
         "--gap-recovery",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="retry some loud transcription gaps",
+        help="optional extra requests for transcription gaps (default: off)",
     )
     p.add_argument("--max-bytes", type=int)
     p.add_argument("--max-seconds", type=int)
