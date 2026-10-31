@@ -84,3 +84,7 @@ python -m translation input.mp4 --output ./output/gpu --encoder h264_nvenc
 制作の目標・再開・接続の整理は [制作経路の整理](docs/STREAMLINING.md) を参照してください。
 
 保存済み翻訳からSRT・ASS・VTT・原文字幕・対訳表を書き出す方法は [字幕と対訳の書き出し](docs/EXPORT.md)、人名や専門用語の表記指定は [用語集](docs/GLOSSARY.md) を参照してください。
+
+## 関連リポジトリ
+
+制作パイプライン全体の構成と各リポジトリの役割は [ClipForge の README](https://github.com/nyu1791-collab/ClipForge#関連リポジトリ) を参照してください。
