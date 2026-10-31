@@ -199,3 +199,62 @@ def scene_changes(path, threshold=0.3):
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     return [float(v) for v in re.findall(r"pts_time:([\d.]+)", result.stderr)]
+
+
+def probe_media(path):
+    """(duration seconds, has_audio) from one ffprobe call."""
+    import json
+
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration:stream=codec_type",
+         "-of", "json", str(path)],
+        capture_output=True, text=True, check=True,
+    )
+    data = json.loads(result.stdout)
+    duration = float(data.get("format", {}).get("duration") or 0)
+    return duration, any(s.get("codec_type") == "audio" for s in data.get("streams", []))
+
+
+def music_bed(duration, volume=0.18, fade=1.5, voice=True):
+    """filter_complex for a looped music bed ([1:a]) under the voice ([0:a]).
+    The music ducks while someone speaks (sidechaincompress keyed by the voice),
+    fades out at the end, and the mix is peak-limited. Output label: [aout]."""
+    tail = f"afade=t=out:st={max(0.0, duration - fade):.3f}:d={fade}" if duration > 2 * fade else "anull"
+    music = f"[1:a]aresample=48000,aformat=channel_layouts=stereo,volume={volume},{tail}"
+    if not voice:
+        return f"{music},atrim=0:{duration:.3f}[aout]"
+    return (
+        f"[0:a]aresample=48000,aformat=channel_layouts=stereo,asplit=2[cfvoice][cfkey];"
+        f"{music}[cfbgm];"
+        f"[cfbgm][cfkey]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=400[cfduck];"
+        f"[cfvoice][cfduck]amix=inputs=2:duration=first:normalize=0,"
+        f"alimiter=limit=0.89:level=disabled[aout]"
+    )
+
+
+def add_music(video, music, output, volume=0.18, fade=1.5):
+    """Lay a ducked music bed under a finished video. Video is stream-copied (no re-encode)."""
+    duration, has_audio = probe_media(video)
+    cmd = [
+        "ffmpeg", "-nostdin", "-v", "error", "-y", "-i", str(video),
+        "-stream_loop", "-1", "-i", str(music),
+        "-filter_complex", music_bed(duration, volume, fade, voice=has_audio),
+        "-map", "0:v:0", "-map", "[aout]", "-c:v", "copy", *audio_args(),
+        "-t", f"{duration:.3f}", "-movflags", "+faststart", str(output),
+    ]
+    subprocess.run(cmd, check=True, capture_output=True)
+    return output
+
+
+def thumbnail(video, image, width=None):
+    """Most representative frame (histogram closest to the average) from a sample
+    of every 15th frame, saved as a high-quality JPEG."""
+    vf = "select='not(mod(n\\,15))',thumbnail=40"
+    if width:
+        vf += f",scale={_even(width)}:-2:flags=lanczos"
+    subprocess.run(
+        ["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", str(video), "-vf", vf,
+         "-frames:v", "1", "-q:v", "2", str(image)],
+        check=True, capture_output=True,
+    )
+    return image

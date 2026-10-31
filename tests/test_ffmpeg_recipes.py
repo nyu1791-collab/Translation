@@ -53,6 +53,13 @@ class Recipes(unittest.TestCase):
         self.assertEqual(fr.fades(0.3), ("", ""))
         self.assertIn("fade=t=out:st=9.750", fr.fades(10)[0])
 
+    def test_music_bed_ducks_under_voice(self):
+        graph = fr.music_bed(30.0)
+        self.assertIn("sidechaincompress", graph)
+        self.assertIn("afade=t=out:st=28.500", graph)
+        self.assertTrue(graph.endswith("[aout]"))
+        self.assertNotIn("sidechaincompress", fr.music_bed(30.0, voice=False))
+
 
 @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg is not installed")
 class RealRender(unittest.TestCase):
@@ -81,6 +88,16 @@ class RealRender(unittest.TestCase):
             self.assertEqual((video["width"], video["height"]), (360, 640))
             self.assertEqual(video.get("color_primaries"), "bt709")
             self.assertEqual(audio["sample_rate"], "48000")
+
+            music, mixed = Path(folder) / "bgm.m4a", Path(folder) / "mixed.mp4"
+            subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-y", "-f", "lavfi",
+                            "-i", "sine=f=200:d=5", str(music)], check=True)
+            fr.add_music(target, music, mixed)
+            duration, has_audio = fr.probe_media(mixed)
+            self.assertTrue(has_audio)
+            self.assertAlmostEqual(duration, 2.0, delta=0.2)
+            thumb = fr.thumbnail(mixed, Path(folder) / "thumb.jpg", width=180)
+            self.assertGreater(thumb.stat().st_size, 0)
 
 
 if __name__ == "__main__":
