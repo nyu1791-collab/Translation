@@ -412,6 +412,8 @@ def run(source, output, options):
         "duration_seconds": duration,
         "source_language": options["source_language"] or "auto",
         "target_language": options["target_language"],
+        "source_video": str(video),
+        "project": options["project"],
         "transcription_model": "gemini-3.5-transcribe",
         "translation_model": options["model"],
         "glossary_terms": len(options.get("glossary") or {}),

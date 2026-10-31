@@ -89,6 +89,26 @@ python -m translation input.mp4 --output ./output/gpu --encoder h264_nvenc
 
 字幕付き動画は `src/translation/ffmpeg_recipes.py` の設定で書き出します（lanczos縮小、BT.709、AAC 192k/48kHz、faststart）。`--quality draft|standard|high` で選び、既定は standard です。`--preset` を付けた場合は x264 の preset だけを上書きします。
 
+## 吹き替え（多言語化の受託向け・半自動）
+
+翻訳済みの出力フォルダから、吹き替え動画と納品物一式を作ります。最後は人が台本を確認してから納品します。
+
+```sh
+# 1) 下書き: 全行を音声にして時間に合わせ、dub/review.tsv と dub/dubbed-draft.mp4 を作る
+python -m translation.dub OUTPUT --project PROJECT_ID            # Google の声（多言語）
+python -m translation.dub OUTPUT --engine voicevox               # 日本語を VOICEVOX で
+#    長すぎるせりふの短縮案も欲しいとき: --shorten（Gemini。意味・数字・否定は変えない）
+# 2) dub/review.tsv を確認・修正（「要確認」の行＝速めた行・遅れた行・未翻訳の行）
+# 3) 修正を反映して納品物を作る（直した行だけ作り直す）
+python -m translation.dub OUTPUT --project PROJECT_ID --apply-review
+```
+
+- **声**: 元の話者ごとに別の声を自動で割り当てます。`--voices '{"speaker_1":"ja-JP-Neural2-C"}'` で指定もできます。
+- **時間合わせ**: 元の発話の開始に合わせ、次の発話までに収まらなければ最大1.3倍まで速めます。それでも収まらない行は、前の行の後ろへずらし（重ねない）、「要確認」にします。
+- **背景音**: 元の音声を小さく残し、吹き替えが話す間はさらに下げます（ボイスオーバー方式。`--bed` で大きさを指定）。`--separate` と Demucs があれば元の声だけを消し、BGM・効果音をそのまま残します。
+- **納品物（delivery/）**: `dubbed.mp4`（第1音声＝吹き替え、第2音声＝元の音声）、字幕一式（SRT・ASS・VTT・対訳）、吹き替え台本、報告書、`README.txt`。VOICEVOX を使ったときは、必要なクレジットも書き出します。
+- `--burn-subtitles` で字幕を焼き込みます。
+
 ## 関連リポジトリ
 
 制作パイプライン全体の構成と各リポジトリの役割は [ClipForge の README](https://github.com/nyu1791-collab/ClipForge#関連リポジトリ) を参照してください。
