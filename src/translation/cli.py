@@ -21,7 +21,8 @@ DEFAULTS = {
     "thinking": "MEDIUM",
     "height": 360,
     "encoder": "libx264",
-    "preset": "veryfast",
+    "preset": None,
+    "quality": "standard",
     "font": "Noto Sans CJK JP",
     "font_size": 24,
     "line_chars": 25,
@@ -58,7 +59,8 @@ def parser():
         "--height", type=int, help="output height; 0 preserves source resolution"
     )
     p.add_argument("--encoder", choices=["libx264", "h264_nvenc"])
-    p.add_argument("--preset")
+    p.add_argument("--preset", help="x264 preset override (default: from --quality)")
+    p.add_argument("--quality", choices=["draft", "standard", "high"])
     p.add_argument("--font")
     p.add_argument("--font-size", type=int)
     p.add_argument(

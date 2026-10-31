@@ -7,7 +7,7 @@
   "thinking": "MEDIUM",
   "height": 360,
   "encoder": "libx264",
-  "preset": "veryfast",
+  "quality": "standard",
   "font": "Noto Sans CJK JP",
   "font_size": 24,
   "line_chars": 25,

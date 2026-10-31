@@ -85,6 +85,10 @@ python -m translation input.mp4 --output ./output/gpu --encoder h264_nvenc
 
 保存済み翻訳からSRT・ASS・VTT・原文字幕・対訳表を書き出す方法は [字幕と対訳の書き出し](docs/EXPORT.md)、人名や専門用語の表記指定は [用語集](docs/GLOSSARY.md) を参照してください。
 
+## 書き出し品質
+
+字幕付き動画は `src/translation/ffmpeg_recipes.py` の設定で書き出します（lanczos縮小、BT.709、AAC 192k/48kHz、faststart）。`--quality draft|standard|high` で選び、既定は standard です。`--preset` を付けた場合は x264 の preset だけを上書きします。
+
 ## 関連リポジトリ
 
 制作パイプライン全体の構成と各リポジトリの役割は [ClipForge の README](https://github.com/nyu1791-collab/ClipForge#関連リポジトリ) を参照してください。

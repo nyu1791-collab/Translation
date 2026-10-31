@@ -14,6 +14,7 @@ from translation._media.gap_diagnostics import describe_gaps
 from translation._media.storage import PipelineError, digest, process, write_json
 from translation._media.transcribe_adapter import word_segments
 from .backend import Vertex, VertexHTTPError, identity
+from . import ffmpeg_recipes as fr
 from .captions import apply_translation, make_cues, write_subtitles
 
 WINDOW = 898.0
@@ -257,7 +258,7 @@ def process_window(
     }
 
 
-def render(video, output, start, duration, height, encoder, preset):
+def render(video, output, start, duration, height, encoder, preset, quality="standard"):
     cmd = [
         "ffmpeg",
         "-nostdin",
@@ -272,14 +273,14 @@ def render(video, output, start, duration, height, encoder, preset):
         str(duration),
         "-vf",
     ]
-    vf = (f"scale=-2:{height}," if height else "") + "ass=subtitles.ass"
-    cmd += [vf, "-map", "0:v:0", "-map", "0:a:0?", "-c:v", encoder]
-    if encoder == "libx264":
-        cmd += ["-preset", preset, "-crf", "23"]
-    else:
-        cmd += ["-preset", "p4", "-cq", "25"]
+    vf = (f"scale=-2:{height}:flags=lanczos," if height else "") + "ass=subtitles.ass"
+    video_args = fr.video_args(quality, encoder)
+    if encoder == "libx264" and preset:
+        # An explicit x264 preset keeps priority over the quality profile's preset.
+        video_args[video_args.index("-preset") + 1] = preset
+    cmd += [vf, "-map", "0:v:0", "-map", "0:a:0?", *video_args]
     temporary = output / (".video-" + uuid.uuid4().hex + ".mp4")
-    cmd += ["-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(temporary)]
+    cmd += [*fr.audio_args(), "-movflags", "+faststart", str(temporary)]
     try:
         run_command(cmd, timeout=max(600, int(duration * 5)), cwd=output)
         temporary.replace(output / "video.mp4")
@@ -304,7 +305,7 @@ def run(source, output, options):
     duration = clip_end - clip_start
     if duration > options["max_seconds"]:
         raise PipelineError("Source exceeds the configured duration limit")
-    presentation_fields = {"height", "encoder", "preset", "font", "font_size", "line_chars", "bilingual", "subtitles_only"}
+    presentation_fields = {"height", "encoder", "preset", "quality", "font", "font_size", "line_chars", "bilingual", "subtitles_only"}
     content = {"source_sha256": source_hash, "start": clip_start, "end": clip_end,
                **{k:v for k,v in options.items() if k not in {"max_bytes", "max_seconds", "workers"}}}
     if not content.get("glossary"):
@@ -394,6 +395,7 @@ def run(source, output, options):
                 options["height"],
                 options["encoder"],
                 options["preset"],
+                options.get("quality", "standard"),
             )
         files.append("video.mp4")
     manifest = {
