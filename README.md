@@ -84,3 +84,7 @@ python -m translation input.mp4 --output ./output/gpu --encoder h264_nvenc
 制作の目標・再開・接続の整理は [制作経路の整理](docs/STREAMLINING.md) を参照してください。
 
 保存済み翻訳からSRT・ASS・VTT・原文字幕・対訳表を書き出す方法は [字幕と対訳の書き出し](docs/EXPORT.md)、人名や専門用語の表記指定は [用語集](docs/GLOSSARY.md) を参照してください。
+
+## Windowsから使う
+
+リポジトリのフォルダで `run-windows.cmd` をダブルクリックすると使い方を表示する。PowerShellからは `.\run-windows.cmd --help`。既存の専用 `.venv` とUTF-8を使う。例：`.\run-windows.cmd input.mp4 --output C:\Users\nyu17\yu-lab\media\projects\translation-new`。実際の文字起こし・翻訳には指定のVertex認証が必要。Intel内蔵GPUのこのPCでは、NVIDIA向け `h264_nvenc` を指定せず既定のCPU描画を使う。
